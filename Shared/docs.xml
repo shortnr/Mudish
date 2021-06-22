@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<docs>
+  <members name="queries">
+    <NameFromSocket>
+      <summary>
+        
+      </summary>
+    </NameFromSocket>
+    <RoomInDirection>
+      <summary>
+        This query returns the id for the room in a given direction.
+      </summary>
+      <remarks>
+        Takes variables:
+        <list type="number">
+          <item>
+            <term>direction</term>
+            <description>The direction of the room requested.</description>
+          </item>
+          <item>
+            <term>character_name</term>
+            <description>The name of the character in the room.</description>
+          </item>
+        </list>
+      </remarks>
+    </RoomInDirection>
+  </members>
+</docs>
