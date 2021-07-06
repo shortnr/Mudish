@@ -1,0 +1,19 @@
+NewCharacterWindow
+
+1. Added Clear Form Button
+	When pressed:
+		Character Name, Password and Password confirmation boxes return to initial state
+
+2. Added function to Clear Form Button
+
+3. Indicated fields are mandatory (*)
+
+
+LoginWindow
+
+1. Added "Defaults" button
+	Set Defaults button to change the server to "mudish.com" and port to 		"11000"
+
+2. Set initial defaults to mudish.com/11000
+
+3. Resized buttons

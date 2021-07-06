@@ -5,26 +5,35 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Client.Views"
         mc:Ignorable="d" Height="240" Width="300" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" WindowStyle="None" BorderThickness="2" Title="NewCharacterWindow" Initialized="Window_Initialized">
-    <Grid>
+    <Grid Margin="0,0,0,-4">
         <Grid.RowDefinitions>
-            <RowDefinition/>
-            <RowDefinition/>
-            <RowDefinition/>
-            <RowDefinition/>
+            <RowDefinition Height="4*"/>
+            <RowDefinition Height="4*"/>
+            <RowDefinition Height="4*"/>
+            <RowDefinition Height="5*"/>
         </Grid.RowDefinitions>
-        <TextBox x:Name="NameTextBox" Text ="Character Name" TextAlignment="Center" FontSize="24"
-                 VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0 10 0 0"
-                 Grid.Row="0" Width="200" Height="36" MaxLines="1" Foreground="Gray" GotFocus="NameTextBox_GotFocus" LostFocus="NameTextBox_LostFocus"/>
-        
+        <TextBox x:Name="NameTextBox" Text ="Character Name" TextAlignment="Center" FontSize="24" HorizontalAlignment="Center" Margin="48,10,48,11"
+                 Grid.Row="0" Width="200" MaxLines="1" Foreground="Gray" GotFocus="NameTextBox_GotFocus" LostFocus="NameTextBox_LostFocus"/>
+
+        <Label HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="18" RenderTransformOrigin="0.772,0.746" Margin="0,18,0,16" Width="43" Content="*" Height="26"/>
+
         <TextBox x:Name="PasswordTextBox" Text ="Enter Password" TextAlignment="Center" FontSize="24"
-                 VerticalAlignment="Center" HorizontalAlignment="Center"
-                 Grid.Row="1" Width="200" Height="36" MaxLines="1" Foreground="Gray" GotFocus="PasswordTextBox_GotFocus" LostFocus="PasswordTextBox_LostFocus"/>
-        
+                 VerticalAlignment="Top" HorizontalAlignment="Center"
+                 Grid.Row="1" Width="200" Height="36" MaxLines="1" Foreground="Gray" GotFocus="PasswordTextBox_GotFocus" LostFocus="PasswordTextBox_LostFocus" Margin="48,10,48,0"/>
+
         <TextBox x:Name="SecondPasswordTextBox" Text ="Reenter Password" TextAlignment="Center" FontSize="24"
-                 VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0 0 0 10"
+                 VerticalAlignment="Top" HorizontalAlignment="Center" Margin="48,9,48,0"
                  Grid.Row="2" Width="200" Height="36" MaxLines="1" Foreground="Gray" GotFocus="SecondPasswordTextBox_GotFocus" LostFocus="SecondPasswordTextBox_LostFocus" KeyUp="SecondPasswordTextBox_KeyUp"/>
-        
-        <Button x:Name="CreateButton" Grid.Row="3" Width="120" Height="40" Content="Create" FontSize="24"
-                Margin="0 0 0 10" Click="CreateButton_Click"/>
+
+        <Button x:Name="CreateButton" Grid.Row="3" Content="Create" FontSize="24"
+                Margin="10,9,166,17" Click="CreateButton_Click" RenderTransformOrigin="-0.579,0.497"/>
+
+        <Button x:Name="ClearFormButton" Grid.Row="3" Content="Clear Form" FontSize="24"
+            Margin="166,9,10,17" Click="ClearFormButton_Click" RenderTransformOrigin="-0.579,0.497"/>
+
+ 
+
+        <Label HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="18" RenderTransformOrigin="0.772,0.746" Margin="0,18" Width="43" Content="*" Grid.Row="1" Height="24"/>
+        <Label HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="18" RenderTransformOrigin="0.772,0.746" Margin="0,6,0,26" Width="43" Content="*" Grid.Row="2" Height="28"/>
     </Grid>
 </Window>

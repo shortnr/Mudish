@@ -96,5 +96,10 @@ namespace Client
             newExisting.Owner = Owner;
             newExisting.Show();
         }
+                private void Default_Click(object sender, RoutedEventArgs e)
+        {
+            ServerInputBox.Text = "mudish.com";
+            PortInputBox.Text = "11000";
+        }
     }
 }

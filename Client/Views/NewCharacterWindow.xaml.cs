@@ -107,5 +107,14 @@ namespace Client.Views
             ClientCore.NewCharacter(NameTextBox.Text, PasswordTextBox.Text, SecondPasswordTextBox.Text);
         }
 
+        private void ClearFormButton_Click(object sender, RoutedEventArgs e)
+        {
+                NameTextBox.Text = "Character Name";
+                NameTextBox.Foreground = new SolidColorBrush(Colors.Gray);
+                PasswordTextBox.Text = "Enter Password";
+                PasswordTextBox.Foreground = new SolidColorBrush(Colors.Gray);
+                SecondPasswordTextBox.Text = "Reenter Password";
+                SecondPasswordTextBox.Foreground = new SolidColorBrush(Colors.Gray);
+        }
     }
 }
