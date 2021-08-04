@@ -8,7 +8,7 @@
         Title="Login" Height="180" Width="300"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" WindowStyle="None" BorderThickness="2">
 
-    <Grid>
+    <Grid Background="Black">
         <Grid.RowDefinitions>
             <RowDefinition Height="57*"/>
             <RowDefinition Height="57*"/>
@@ -18,19 +18,19 @@
         <TextBox Name="ServerInputBox" FontSize="24" Grid.Row="0"
                  VerticalAlignment="Center" HorizontalAlignment="Center"
                  Width="200" Height="36" Margin="48,10,48,11" Text="mudish.com"
-                 TextAlignment="Center" MaxLines="1" Foreground="Gray"
-                 GotFocus="ServerInputBox_GotFocus" LostFocus="ServerInputBox_LostFocus"/>
+                 TextAlignment="Center" MaxLines="1" Foreground="#FF004B15"
+                 GotFocus="ServerInputBox_GotFocus" LostFocus="ServerInputBox_LostFocus" Background="Black"/>
 
         <TextBox Name="PortInputBox" FontSize="24" Grid.Row="1"
                  VerticalAlignment="Center" HorizontalAlignment="Center"
                  Width="200" Height="36" Margin="48,11,48,10" Text="11000"
-                 TextAlignment="Center" MaxLines="1" Foreground="Gray"
-                 GotFocus="PortInputBox_GotFocus" LostFocus="PortInputBox_LostFocus"/>
+                 TextAlignment="Center" MaxLines="1" Foreground="#FF004B15"
+                 GotFocus="PortInputBox_GotFocus" LostFocus="PortInputBox_LostFocus" Background="Black"/>
 
-        <Button x:Name="ConnectButton" Content="Connect" FontSize="24" Grid.Row="2" Margin="10,10,166,4" Click="ConnectButton_Click"/>
+        <Button x:Name="ConnectButton" Content="Connect" FontSize="24" Grid.Row="2" Margin="10,10,166,4" Click="ConnectButton_Click" Background="Black" Foreground="#FF004B15"/>
 
         <Button x:Name="DefaultButton" Grid.Row="2" Content="Defaults" FontSize="24"
-            Margin="166,10,10,4" Click="Default_Click" RenderTransformOrigin="-0.579,0.497"/>
+            Margin="166,10,10,4" Click="Default_Click" RenderTransformOrigin="-0.579,0.497" Background="Black" Foreground="#FF004B15"/>
 
     </Grid>
 </Window>

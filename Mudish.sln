@@ -11,6 +11,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server (GUI)", "Server (GUI)\Server (GUI).csproj", "{1500AB94-5FC1-4C4F-A792-E920A1B0BAC8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ResourcesPlaceHolder", "ResourcesPlaceHolder", "{83CD6336-04E3-4749-B4BF-7A4FB1EA52C2}"
+	ProjectSection(SolutionItems) = preProject
+		..\..\..\OneDrive\Desktop\ButtonBackground.png = ..\..\..\OneDrive\Desktop\ButtonBackground.png
+		..\..\..\OneDrive\Desktop\Changes.txt = ..\..\..\OneDrive\Desktop\Changes.txt
+		..\..\..\OneDrive\Desktop\testbox.png = ..\..\..\OneDrive\Desktop\testbox.png
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
