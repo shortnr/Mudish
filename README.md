@@ -10,4 +10,4 @@
 - C#
 - .NET Framework
 
-ℹ️ Note: This is a past project created for portfolio purposes and is not actively maintained.
+ℹ️ Note: This is a past project created for a university course and is now used for portfolio purposes. It is not actively maintained.
