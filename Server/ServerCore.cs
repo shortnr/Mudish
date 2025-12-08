@@ -493,7 +493,7 @@ namespace Server
                 // Populate room metadata.
                 room.Title = dt.Rows[0].Field<string>("title");
                 room.Description = dt.Rows[0].Field<string>("description");
-                room.Exits = dt.Rows[0].Field<string>("room_exits");
+                //room.Exits = dt.Rows[0].Field<string>("room_exits");
                 room.Players = new List<string>();
 
                 // Get a list of other players in the room and map them to active sockets.

@@ -124,6 +124,8 @@ namespace Client
                 case "east":
                 case "south":
                 case "north":
+                case "up":
+                case "down":
                     command.CommandType = Types.Commands.MOVE;
                     command.Arguments = splitText[0];
                     valid = true;
@@ -343,7 +345,7 @@ namespace Client
             List<string> roomText = new List<string>();
             roomText.Add(room.Title);
             roomText.AddRange(Wrap(room.Description, 60));
-            roomText.Add(room.Exits);
+            //roomText.Add(room.Exits);
             // List players in room
             foreach (string name in room.Players) roomText.Add(name);
             roomText.Add("");
