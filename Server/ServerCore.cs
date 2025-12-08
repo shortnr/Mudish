@@ -4,51 +4,72 @@ using System.Collections.Generic;
 using Shared;
 using System.Data;
 using System.Threading;
-using System.Diagnostics;
 
 namespace Server
 {
+    /// <summary>
+    /// Core server functionality: connection tracking, message dispatching, and high-level
+    /// game command handling. This class coordinates between network listeners and the
+    /// database to implement login, movement, chat, and related features.
+    /// </summary>
     public class ServerCore
     {
-        // A list of socket connections
+        // A list of socket connections currently active on the server.
         public static List<Socket> Connections = new List<Socket>();
         
-        // Database class instance
+        // Database helper instance for executing queries and updates.
         private static Database db = new Database();
 
-        // Tick timer variables and events. The server tick period is 50ms
+        // Tick timer variables and events. The server tick period is 50ms.
+        // Used to perform periodic tasks such as sending heartbeats.
         private static AutoResetEvent thresholdEvent = new AutoResetEvent(false);
         private static Timer Ticks = new Timer(TickTimer, null, 50, 50);
         private static int tickCount = 0;
 
-        // Reusable byte array for heartbeat message. Could probably be stored in Message class
-        // so it doesn't need to be remade on the client-side.
+        // Reusable byte array for the heartbeat message. Constructed once to avoid
+        // recreating the same bytes repeatedly.
         private static byte[] heartbeatBytes = Message.GenerateMessage(null, Types.MessageType.HEARBEAT);
 
+        /// <summary>
+        /// Application entry point for the server process. Connects to the database,
+        /// resets stale socket references, starts the network listener and tick timer.
+        /// </summary>
         public static int Main(String[] args)
         {
-            // Connect to the database, reset all players socket handles to -1 (no one is logged
-            // in yet). Start the TCP socket listener.
+            // Establish database connection and clear old socket references so nobody
+            // shows as "already logged in" after a restart.
             db.Connect();
             ResetAllSockets();
+
+            // Start listening for incoming TCP connections.
             AsynchronousSocketListener.StartListening();
             
-            // Start the tick timer.
+            // Ensure the tick timer is running.
             Ticks.Change(50, 50);
             
             return 0;
         }
 
-        // Tick timer event handler.
+        /// <summary>
+        /// Timer callback executed every server tick. Tracks ticks and sends a heartbeat
+        /// to all connected clients at a fixed interval (every 5 seconds by default).
+        /// </summary>
         private static void TickTimer(object state)
         {
             tickCount++;
-            if (tickCount % (5 * 20) == 0) Connections.ForEach(recipient => AsynchronousSocketListener.Send(recipient, heartbeatBytes));
+
+            // Send heartbeat every (5 seconds) = 5 * (1000ms / 50ms) = 100 ticks
+            if (tickCount % (5 * 20) == 0)
+                Connections.ForEach(recipient => AsynchronousSocketListener.Send(recipient, heartbeatBytes));
         }
 
-        // Resets a players socket handle (after disconnection).
+        /// <summary>
+        /// Reset the socket handle for a specific player in the database. Typically
+        /// called after a client disconnects to clear their socket_id.
+        /// </summary>
         public static void ResetPlayerSocket(IntPtr socketHandle)
         {
+            // Look up the player's id by socket handle and set socket_id to -1.
             string id = db.Query("select BIN_TO_UUID(id) as id from players where socket_id = " +
                 socketHandle).Rows[0].Field<string>("id");
             
@@ -57,12 +78,15 @@ namespace Server
             db.Update(query);
         }
 
-        // Iterates though all rows in the players table in the database, resetting the socket field to -1.
-        // Helps to minimize "already logged in" errors.
+        /// <summary>
+        /// Iterate through all players and set their socket_id to -1. Useful on server
+        /// startup to clear stale state left from previous runs.
+        /// </summary>
         public static void ResetAllSockets()
         {
             DataTable dt = db.Query("select BIN_TO_UUID(id) as id from players");
             
+            // For each player record set the socket_id to -1.
             foreach (DataRow row in dt.Rows)
             {
                 string updateQuery = String.Format("update players set socket_id = -1 where id = UUID_TO_BIN(\"{0}\")",
@@ -72,55 +96,66 @@ namespace Server
             }
         }
 
-        // Dispatches incoming messages.
+        /// <summary>
+        /// Entry point for incoming messages from clients. Deserializes messages and
+        /// dispatches them to the appropriate handler based on message type.
+        /// </summary>
         public static void TakeAction(IntPtr socketHandle, ushort type, byte[] messageBytes)
         {
             switch (type)
             {
                 case (ushort)Types.MessageType.HEARBEAT:
+                    // Heartbeat received from a client; currently ignored by server.
                     break;
                 case (ushort)Types.MessageType.ERROR:
+                    // Client reported an error; no server-side handling at this time.
                     break;
                 case (ushort)Types.MessageType.LOGIN:
+                    // Deserialize login payload and handle login/new-character flow.
                     Login loginMess = (Login)Message.Deserialize<Login>(messageBytes);
                     UserLogin(loginMess, socketHandle);
                     break;
                 case (ushort)Types.MessageType.COMMAND:
+                    // Deserialize a command message and execute the requested command.
                     Command commandMess = (Command)Message.Deserialize<Command>(messageBytes);
                     Command(socketHandle, commandMess);
                     break;
                 default:
+                    // Unknown or unhandled message types are ignored.
                     break;
             }
         }
 
-        // Handles login messages, both existing users and new users.
+        /// <summary>
+        /// Handle login messages for both existing characters and new character creation.
+        /// Updates database socket references and sends acknowledgement/room data back to client.
+        /// </summary>
         private static void UserLogin(Login login, IntPtr socketHandle)
         {
             switch(login.LoginType)
             {
-                // Existing character login case.
                 case Types.LoginType.EXISTING:
                     try
                     {
-                        // Queries the database for an entry with matching name and SHA256 hash values.
+                        // Determine whether credentials match an existing player and whether
+                        // that player's socket_id corresponds to an active connection.
                         bool exists = false;
                         int queriedSocket = -2;
                         try
                         {
                             queriedSocket = db.Query(
-                            Types.Queries.ExistingLoginQuery,
+                            Queries.ExistingLoginQuery,
                             login.Name,
                             login.Hash).Rows[0].Field<int>("socket_id");
                         }
                         catch (Exception e)
                         {
+                            // Query failure likely means no matching record; log for diagnostics.
                             Console.WriteLine(e.Message);
                             Console.WriteLine(e.StackTrace);
                         }
 
-                        // Iterates through the active connections to see if the socket handle associate
-                        // with the character attempting to login is a handle on an active connection.
+                        // Check active connection list to see if this socket is already connected.
                         foreach (Socket connection in Connections)
                         {
                             if ((int)connection.Handle == queriedSocket)
@@ -129,27 +164,20 @@ namespace Server
                             }
                         }
                         
-                        // If there isn't an active connection associate with a socket handle, the player
-                        // is successfully logged in (the catch block handles username/password authentication
-                        // failures.
                         if (!exists)
                         {
-                            db.Update(Types.Queries.ExistingLogin, socketHandle.ToString(), login.Name);
-                            Ack loginAck = new Ack();
-                            loginAck.Type = Types.AckType.LOGIN;
+                            // Persist this connection's socket handle for the player and send
+                            // acknowledgement and initial room data.
+                            db.Update(Queries.ExistingLogin, socketHandle.ToString(), login.Name);
+                            Ack loginAck = new Ack { Type = Types.AckType.LOGIN };
                             byte[] ackBytes = Message.GenerateMessage(loginAck, Types.MessageType.ACK);
                             AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), ackBytes);
 
-                            //Console.WriteLine("Here");
                             Room room = GetRoom(socketHandle);
-                            
                             byte[] roomBytes = Message.GenerateMessage(room, Types.MessageType.ROOM);
-
                             AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), roomBytes);
                         }
-                        // Else, there's someone logged in with that character and an error message is sent
-                        // (since the user is not signed in, the error comes as a MessageBox, rather than a
-                        // message to the game window).
+                        // Someone is already logged in with that character; notify client.
                         else
                         {
                             ServerMessage error = new ServerMessage();
@@ -159,9 +187,9 @@ namespace Server
                             AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), errorMessageBytes);
                         }
                     }
-                    // The login was invalid and the user is notified via a MessageBox.
                     catch (Exception e)
                     {
+                        // Authentication failed or other unexpected error; notify client.
                         Console.WriteLine(e.Message);
                         ServerMessage error = new ServerMessage();
                         error.MessageType = Types.ServerMessageType.POPUP;
@@ -170,12 +198,13 @@ namespace Server
                         AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), errorMessageBytes);
                     }
                     break;
-                // New character. Checks to see if the requested name already exists in
-                // the database.
+
                 case Types.LoginType.NEW:
                     try
                     {
-                        DataTable dt = db.Query(Types.Queries.NewLogin, login.Name);
+                        // If a character with that name exists the query will succeed and
+                        // we inform the client that the name is taken.
+                        DataTable dt = db.Query(Queries.NewLogin, login.Name);
                         dt.Rows[0].Field<string>("id");
 
                         ServerMessage error = new ServerMessage
@@ -183,101 +212,100 @@ namespace Server
                             MessageType = Types.ServerMessageType.POPUP,
                             MessageText = "A character already exists by that name."
                         };
+
+                        byte[] errorMessageBytes = Message.GenerateMessage(error, Types.MessageType.SERVERMESSAGE);
+                        AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), errorMessageBytes);
                     }
-                    // The catch block catches a database exception (which, in this case
-                    // indicates a good "new character" attempt. The character is created
-                    // with a database query, and the user is dropped into the spawn room
-                    // (delivered with a Room message).
                     catch
                     {
-                        string newCharQuery = String.Format(Types.Queries.CreateCharacter,
-                            login.Name, login.Hash, socketHandle);
+                        // No existing character found: create a new player record, send ack and room.
+                        db.Update(String.Format(Queries.CreateCharacter, login.Name, login.Hash, socketHandle));
 
-                        db.Update(String.Format(Types.Queries.CreateCharacter,
-                            login.Name, login.Hash, socketHandle));
-
-                        Ack loginAck = new Ack
-                        {
-                            Type = Types.AckType.LOGIN
-                        };
-
+                        Ack loginAck = new Ack { Type = Types.AckType.LOGIN };
                         byte[] ackBytes = Message.GenerateMessage(loginAck, Types.MessageType.ACK);
                         AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), ackBytes);
 
                         Room room = GetRoom(socketHandle);
                         byte[] roomBytes = Message.GenerateMessage(room, Types.MessageType.ROOM);
-
                         AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), roomBytes);
                     }
                     break;
+
                 default:
+                    // Unknown login type; ignore.
                     break;
             }
         }
- 
-        // Handles user generated command messages (movement, information generating,
-        // communication, etc.).
+     
+        /// <summary>
+        /// Process a client-issued command (movement, chat, player actions). This method
+        /// translates high-level commands into database updates and outgoing messages.
+        /// </summary>
         public static void Command(IntPtr socketHandle, Command command)
         {
             switch (command.CommandType)
             {
-                // Look command. Returns a Room message.
                 case Types.Commands.LOOK:
+                    // Return the current room description to the calling client.
                     Room room = GetRoom(socketHandle);
                     byte[] roomBytes = Message.GenerateMessage(room, Types.MessageType.ROOM);
 
                     AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), roomBytes);
-
                     break;
-                // Move command. Moves in the requested direction, if possible. Updates
-                // the database with the new player location and sends a new Room message.
+
                 case Types.Commands.MOVE:
-                    string name = db.Query(Types.Queries.NameFromSocket, socketHandle.ToString()).Rows[0].Field<string>("character_name");
+                    // Attempt to resolve the target room and update the player's room in DB.
+                    string name = db.Query(Queries.NameFromSocket, socketHandle.ToString()).Rows[0].Field<string>("character_name");
                     byte[] newRoomBytes;
                     try
                     {
-                        string toRoom = db.Query(Types.Queries.RoomInDirection, command.Arguments, name).Rows[0].Field<string>("new_room");
-                        db.Update(String.Format(Types.Queries.UpdatePlayerRoom, toRoom, name));
+                        string toRoom = db.Query(Queries.RoomInDirection, command.Arguments, name).Rows[0].Field<string>("new_room");
+                        db.Update(String.Format(Queries.UpdatePlayerRoom, toRoom, name));
+
                         Room newRoom = GetRoom(socketHandle);
                         newRoomBytes = Message.GenerateMessage(newRoom, Types.MessageType.ROOM);
                     }
                     catch (Exception e)
                     {
+                        // Invalid move; notify the player with a console message.
                         Console.WriteLine(e.Message);
-                        ServerMessage error = new ServerMessage();
-                        error.MessageType = Types.ServerMessageType.CONSOLE;
-                        error.MessageText = "You cannot move in that direction.";
+                        ServerMessage error = new ServerMessage
+                        {
+                            MessageType = Types.ServerMessageType.CONSOLE,
+                            MessageText = "You cannot move in that direction."
+                        };
                         newRoomBytes = Message.GenerateMessage(error, Types.MessageType.SERVERMESSAGE);
                     }
 
                     AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), newRoomBytes);
                     break;
-                // Who command. Returns a Who message with a list of active player names.
+
                 case Types.Commands.WHO:
+                    // Build a list of active player names and send it back as a Who message.
                     List<string> activePlayers = new List<string>();
 
                     foreach (Socket connection in Connections)
                     {
                         if (connection.Connected)
                         {
-                            activePlayers.Add(db.Query(Types.Queries.NameFromSocket, connection.Handle).Rows[0].Field<string>("character_name"));
+                            activePlayers.Add(db.Query(Queries.NameFromSocket, connection.Handle).Rows[0].Field<string>("character_name"));
                         }
                     }
-                    Who whoMessage = new Who();
-                    whoMessage.Players = activePlayers;
+
+                    Who whoMessage = new Who { Players = activePlayers };
                     byte[] whoBytes = Message.GenerateMessage(whoMessage, Types.MessageType.WHO);
                     AsynchronousSocketListener.Send(Connections.Find(client => client.Handle == socketHandle), whoBytes);
                     break;
-                // Tell command. Sends a private message to another active player, provided that player
-                // has not disabled private messages.
+
                 case Types.Commands.TELL:
+                    // Private message handling: lookup sockets, enforce ignore settings, and send.
                     bool tellSent = false;
 
-                    string tellFromName = db.Query(Types.Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
+                    string tellFromName = db.Query(Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
                     string tellToName = command.Arguments.Split(' ')[0];
                     try
                     {
-                        int toSocket = db.Query(Types.Queries.SocketFromName, tellToName).Rows[0].Field<int>("socket_id");
+                        int toSocket = db.Query(Queries.SocketFromName, tellToName).Rows[0].Field<int>("socket_id");
 
                         string messageString = command.Arguments.Substring(command.Arguments.IndexOf(" ") + 1);
 
@@ -290,19 +318,13 @@ namespace Server
                             throw new InvalidOperationException(String.Format("{0} is not accepting tells right now.", tellToName));
                         }
 
-                        ServerMessage tell = new ServerMessage
-                        {
-                            MessageText = tellFromName + " tells you, \"" + messageString + "\""
-                        };
-
-                        ServerMessage tellSelf = new ServerMessage
-                        {
-                            MessageText = "You tell " + tellToName + ", \"" + messageString + "\""
-                        };
+                        ServerMessage tell = new ServerMessage { MessageText = tellFromName + " tells you, \"" + messageString + "\"" };
+                        ServerMessage tellSelf = new ServerMessage { MessageText = "You tell " + tellToName + ", \"" + messageString + "\"" };
 
                         byte[] messageBytes = Message.GenerateMessage(tell, Types.MessageType.SERVERMESSAGE);
                         byte[] selfMessageBytes = Message.GenerateMessage(tellSelf, Types.MessageType.SERVERMESSAGE);
 
+                        // Send the message to the recipient if connected.
                         foreach (Socket connection in Connections)
                         {
                             if (connection.Handle == (IntPtr)toSocket && connection.Connected)
@@ -311,26 +333,27 @@ namespace Server
                                 tellSent = true;
                             }
                         }
+
+                        // If delivered, notify the sender that the tell was sent.
                         if (tellSent)
-                            AsynchronousSocketListener.Send(Connections.Find(
-                                socket => socket.Handle == socketHandle), selfMessageBytes);
+                            AsynchronousSocketListener.Send(Connections.Find(socket => socket.Handle == socketHandle), selfMessageBytes);
                     }
                     catch (Exception e)
                     {
-                        ServerMessage error = new ServerMessage();
-                        error.MessageText = e.Message;
-                        error.MessageType = Types.ServerMessageType.CONSOLE;
+                        // Notify the sender about the failure.
+                        ServerMessage error = new ServerMessage { MessageText = e.Message, MessageType = Types.ServerMessageType.CONSOLE };
                         byte[] errorBytes = Message.GenerateMessage(error, Types.MessageType.SERVERMESSAGE);
                         AsynchronousSocketListener.Send(Connections.Find(socket => socket.Handle == socketHandle), errorBytes);
                     }
                     break;
-                // Say command. Sends a message to every active character in a room.
-                case Types.Commands.SAY:
-                    List<int> roomPlayers = new List<int>();
-                    string sayFromName = db.Query(Types.Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
-                    DataTable sayDt = (DataTable)db.Query(Types.Queries.RoomPlayersBySocket, socketHandle.ToString(), socketHandle.ToString());
 
-                    ServerMessage recipientMessage = new ServerMessage()
+                case Types.Commands.SAY:
+                    // Broadcast a chat message to every player in the same room.
+                    List<int> roomPlayers = new List<int>();
+                    string sayFromName = db.Query(Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
+                    DataTable sayDt = (DataTable)db.Query(Queries.RoomPlayersBySocket, socketHandle.ToString(), socketHandle.ToString());
+
+                    ServerMessage recipientMessage = new ServerMessage
                     {
                         MessageType = Types.ServerMessageType.CONSOLE,
                         MessageText = String.Format("{0} says, \"{1}\"", sayFromName, command.Arguments)
@@ -346,6 +369,7 @@ namespace Server
 
                     byte[] senderMessageBytes = Message.GenerateMessage(senderMessage, Types.MessageType.SERVERMESSAGE);
 
+                    // Send to each socket that matches the players in the room.
                     foreach (Socket player in Connections)
                     {
                         foreach (DataRow row in sayDt.Rows)
@@ -356,28 +380,25 @@ namespace Server
                             }
                         }
                     }
+
+                    // Always send the sender their own confirmation message.
                     AsynchronousSocketListener.Send(Connections.Find(sender => sender.Handle == socketHandle), senderMessageBytes);
                     break;
-                // Shout command. Not yet implemented. Will broadcast a message radially outword. The
-                // message will be readable in the next room in all directions, but will not have a 
-                // player name associated with it. One room further out, there will be an indication
-                // that someone shouted, but the actual message will not be delivered.
-                // 
-                // Ex. "You hear someone shout from the east."
+
                 case Types.Commands.SHOUT:
+                    // Not implemented: planned radial broadcast behaviour.
                     break;
-                // OOC command. Broadcasts a message to every active player who has not chosen
-                // to ignore general chat messages.
+
                 case Types.Commands.OOC:
-                    string senderName = db.Query(Types.Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
-                    
-                    ServerMessage OocRecipientMessage = new ServerMessage()
+                    // Out-of-character global broadcast (subject to player ignore settings).
+                    string senderName = db.Query(Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
+                    ServerMessage OocRecipientMessage = new ServerMessage
                     {
                         MessageType = Types.ServerMessageType.CONSOLE,
                         MessageText = String.Format("{0} says, out of character, \"{1}\"", senderName, command.Arguments)
                     };
 
-                    ServerMessage OocSenderMessage = new ServerMessage()
+                    ServerMessage OocSenderMessage = new ServerMessage
                     {
                         MessageType = Types.ServerMessageType.CONSOLE,
                         MessageText = String.Format("You say, out of character, \"{0}\"", command.Arguments)
@@ -399,10 +420,9 @@ namespace Server
                     }
 
                     break;
-                // Ignore command. Allows the user to ignore, or listen to, private messages
-                // and OOC chat. (Ex. "ignore tells true" will set the player to ignore private
-                // messages.
+
                 case Types.Commands.IGNORE:
+                    // Toggle ignore settings for tells or global chat for the current player.
                     string ignoreWhat = "";
                     int ignored = 0;
                     try
@@ -415,19 +435,14 @@ namespace Server
 
                         if (ignoreArgs[1] == "true") ignored = 1;
                         
-                        string ignoreName = db.Query(Types.Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
+                        string ignoreName = db.Query(Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
 
                         string ignoreQuery = "update players set {0} = {1} where character_name = \"{2}\"";
 
                         db.Update(ignoreQuery, ignoreWhat, ignored, ignoreName);
 
-                        string text;
-
-                        if (ignored == 1)
-                            text = "You are now ignoring {0}.";
-                        else
-                            text = "You are now listening to {0}.";
-                        
+                        // Prepare a feedback message for the player about the new state.
+                        string text = (ignored == 1) ? "You are now ignoring {0}." : "You are now listening to {0}.";
                         ServerMessage successMessage = new ServerMessage
                         {
                             MessageType = Types.ServerMessageType.CONSOLE,
@@ -438,68 +453,77 @@ namespace Server
                     }
                     catch
                     {
-                        ServerMessage error = new ServerMessage();
-                        error.MessageText = "You can't ignore that.";
-                        error.MessageType = Types.ServerMessageType.CONSOLE;
-
+                        // Invalid ignore command; inform the player.
+                        ServerMessage error = new ServerMessage { MessageText = "You can't ignore that.", MessageType = Types.ServerMessageType.CONSOLE };
                         byte[] errorBytes = Message.GenerateMessage(error, Types.MessageType.SERVERMESSAGE);
-                        AsynchronousSocketListener.Send(Connections.Find(connection =>
-                            connection.Handle == socketHandle), errorBytes);
+                        AsynchronousSocketListener.Send(Connections.Find(connection => connection.Handle == socketHandle), errorBytes);
                     }
                     
                     break;
-                // Quit command. When requested by the player, the socket is shutdown, and the Socket
-                // object is removed from the list of connections.
+
                 case Types.Commands.QUIT:
+                    // Cleanly disconnect a client and clear their database socket reference.
                     Socket client = Connections.Find(client => client.Handle == socketHandle);
                     ResetPlayerSocket(socketHandle);
                     client.Shutdown(SocketShutdown.Both);
                     Connections.Remove(client);
                     break;
+
                 default:
+                    // Unhandled command types are ignored.
                     break;
             }
         }
 
-        // Generates a Room message. Queries the database for room title, description,
-        // the exits associated with the room, and a list of players. Will later implement
-        // a list of items, mobs, and visible containers.
+        /// <summary>
+        /// Construct a Room message for the player associated with the given socket handle.
+        /// Queries the database for room meta information and compiles a list of visible players.
+        /// </summary>
         public static Room GetRoom(IntPtr socketHandle)
         {
             Room room = new Room();
 
-            string name = db.Query(Types.Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
+            // Resolve the player's character name from the socket handle first.
+            string name = db.Query(Queries.NameFromSocket, socketHandle).Rows[0].Field<string>("character_name");
 
-            DataTable dt = (DataTable)db.Query(Types.Queries.Room, name);
+            // Query the stored procedure that returns room details for this character.
+            DataTable dt = (DataTable)db.Query(Queries.Room, name);
             if (dt.Rows.Count == 1)
             {
+                // Populate room metadata.
                 room.Title = dt.Rows[0].Field<string>("title");
                 room.Description = dt.Rows[0].Field<string>("description");
                 room.Exits = dt.Rows[0].Field<string>("room_exits");
                 room.Players = new List<string>();
-                dt = (DataTable)db.Query(Types.Queries.RoomPlayers, name, name);
+
+                // Get a list of other players in the room and map them to active sockets.
+                dt = (DataTable)db.Query(Queries.RoomPlayers, name, name);
 
                 foreach (DataRow row in dt.Rows)
                 {
                     string nameCheck = row.Field<string>("character_name");
-                    
-                    DataTable dt2 = (DataTable)db.Query(Types.Queries.SocketFromName, nameCheck);
+                    DataTable dt2 = (DataTable)db.Query(Queries.SocketFromName, nameCheck);
 
+                    // Only include players whose socket is present and connected.
                     foreach (Socket connection in Connections)
                     {
-                        if (connection.Handle == (IntPtr)dt2.Rows[0].Field<int>("socket_id"))
-                            if (connection.Connected)
-                                room.Players.Add(nameCheck + " is here!");
+                        if (connection.Handle == (IntPtr)dt2.Rows[0].Field<int>("socket_id") && connection.Connected)
+                            room.Players.Add(nameCheck + " is here!");
                     }
                 }
-            } 
+            }
             else
             {
+                // Fallback if room lookup fails.
                 room.Title = "NULL";
             }
             return room;
         }
 
+        /// <summary>
+        /// Helper to generate and send a message object to a single client identified by
+        /// their socket handle.
+        /// </summary>
         private static void SendMessage(IntPtr socketHandle, object message, Types.MessageType type)
         {
             byte[] messageBytes = Message.GenerateMessage(message, type);
