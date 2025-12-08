@@ -122,6 +122,9 @@ namespace Server
         // Get current room information
         public static string Room = "select * from rooms where id = (select room_id from players where character_name='{0}')";
 
+        public static string Exits = "select direction from room_exits join rooms on rooms.id = room_exits.room_id where " +
+                                     "rooms.id = (select room_id from players where character_name = '{0}')";
+
         // Get the room ID in a specified direction
         public static string RoomInDirection = "select BIN_TO_UUID(room_exits.destination_id) as new_room from room_exits " +
                                                "inner join players on room_exits.room_id = players.room_id " +

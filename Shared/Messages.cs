@@ -145,7 +145,7 @@ namespace Shared
     {
         public string Title { get; set; }
         public string Description { get; set; }
-        //public string Exits { get; set; }
+        public string Exits { get; set; }
         public List<string> Players { get; set; }
         public List<string> Mobs { get; set; }
         public List<string> Items { get; set; }

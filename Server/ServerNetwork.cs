@@ -158,9 +158,9 @@ namespace Server
                     new AsyncCallback(HeaderCallback), state);
                 }
             }
-            catch
+            catch (Exception e)
             {
-                // Ignore individual receive errors in this simple example.
+                Console.WriteLine(e.Message);
             }
         }
 
