@@ -3,8 +3,8 @@
 
 ## 🚀 Features
 - Text-based gameplay
-- Basic combat mechanics
-- Player stats tracking
+- Basic movement mechanics
+- Basic communication mechanics
 
 ## 🛠 Technologies Used
 - C#
