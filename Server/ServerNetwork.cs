@@ -13,77 +13,85 @@ using System.Threading;
 
 namespace Server
 {
-    // State object for reading client data asynchronously  
+    /// <summary>
+    /// State object used when reading data from a client socket asynchronously.
+    /// Contains a fixed-size buffer, a reference to the client socket and
+    /// bookkeeping for a two-stage (header/body) receive workflow.
+    /// </summary>
     public class StateObject
     {
-        // Size of receive buffer.  
+        // Size of receive buffer.
         public const int BufferSize = 1024;
 
-        // Receive buffer.  
+        // Receive buffer used for both header and body reads.
         public byte[] buffer = new byte[BufferSize];
 
-        // Client socket.
+        // The client socket associated with this state.
         public Socket workSocket = null;
 
+        // Bytes received so far for the current body read.
         public int totalBytesRead = 0;
 
+        // Header for the current incoming message (type + length).
         public Header header = new Header();
     }
 
+    /// <summary>
+    /// Asynchronous TCP socket listener that accepts connections and reads
+    /// framed messages using a 4-byte header (type + length) followed by body.
+    /// Delegates message handling to ServerCore.
+    /// </summary>
     public class AsynchronousSocketListener
     {
-        // Thread signal.  
+        // Signal used to block the accept loop until a connection arrives.
         public static ManualResetEvent allDone = new ManualResetEvent(false);
 
         public AsynchronousSocketListener()
         {
         }
 
+        /// <summary>
+        /// Start the TCP listener, bind to the configured endpoint and accept
+        /// incoming connections. Each accepted socket begins the header read.
+        /// </summary>
         public static void StartListening()
         {
-            // Establish the local endpoint for the socket.  
-            // The DNS name of the computer  
-            // running the listener is "host.contoso.com".  
-            IPHostEntry ipHostInfo = Dns.GetHostEntry("10.0.0.71");
-            IPAddress ipAddress = ipHostInfo.AddressList[0];
-            //IPAddress newIp = new IPAddress(;
-            Console.WriteLine(ipAddress.ToString());
-            IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 11000);
+            // Configure local endpoint (IPAddress.Any:11000).
+            IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 11000);
 
-            // Create a TCP/IP socket.  
-            Socket listener = new Socket(ipAddress.AddressFamily,
+            // Create a TCP/IP listening socket.
+            Socket listener = new Socket(AddressFamily.InterNetwork,
                 SocketType.Stream, ProtocolType.Tcp);
 
-            // Bind the socket to the local endpoint and listen for incoming connections.  
             try
             {
                 listener.Bind(localEndPoint);
                 listener.Listen(500);
 
+                // Accept loop: begin an async accept then block until signaled.
                 while (true)
                 {
-                    // Set the event to nonsignaled state.  
                     allDone.Reset();
 
-                    // Start an asynchronous socket to listen for connections.  
                     Console.WriteLine("Waiting for a connection...");
                     listener.BeginAccept(
                         new AsyncCallback(AcceptCallback),
                         listener);
 
-                    // Wait until a connection is made before continuing.  
                     try
                     {
+                        // Wait for a connection to be accepted (allDone set in AcceptCallback).
                         allDone.WaitOne();
                     }
                     catch
                     {
-
+                        // Swallow thread abort/interruption exceptions silently in this example.
                     }
                 }
             }
             catch (Exception e)
             {
+                // Log binding/listening errors.
                 Console.WriteLine(e.ToString());
             }
 
@@ -91,16 +99,20 @@ namespace Server
             Console.Read();
         }
 
+        /// <summary>
+        /// Callback invoked when a client connection is accepted. Initializes state
+        /// and starts an asynchronous read for the fixed-size header.
+        /// </summary>
         public static void AcceptCallback(IAsyncResult ar)
         {
-            // Signal the main thread to continue.  
+            // Signal the accept loop to continue.
             allDone.Set();
 
-            // Get the socket that handles the client request.  
+            // Obtain the listener and accept the incoming connection.
             Socket listener = (Socket)ar.AsyncState;
             Socket handler = listener.EndAccept(ar);
 
-            // Create the state object.  
+            // Initialize state for this client and register the connection.
             StateObject state = new StateObject();
             state.workSocket = handler;
 
@@ -108,10 +120,15 @@ namespace Server
 
             Console.WriteLine(String.Format("Accepted socket connection handle: {0}", handler.Handle));
 
+            // Begin an async receive for the 4-byte header (type + length).
             handler.BeginReceive(state.buffer, 0, 4, 0,
                 new AsyncCallback(HeaderCallback), state);
         }
 
+        /// <summary>
+        /// Callback for reading the 4-byte header. Once complete this starts the
+        /// body receive of the length specified in the header.
+        /// </summary>
         public static void HeaderCallback(IAsyncResult ar)
         {
             try
@@ -123,129 +140,145 @@ namespace Server
 
                 if (bytesRead >= 4)
                 {
+                    // Extract message type and length from the header bytes.
                     byte[] headerBytes = new byte[4];
                     Buffer.BlockCopy(state.buffer, 0, headerBytes, 0, 4);
 
                     state.header.Type = (ushort)(headerBytes[0] + (headerBytes[1] << 8));
                     state.header.Length = (ushort)(headerBytes[2] + (headerBytes[3] << 8));
 
+                    // Begin receiving the body with the exact length indicated by header.
                     handler.BeginReceive(state.buffer, 0, state.header.Length - 4, 0,
                     new AsyncCallback(BodyCallback), state);
                 }
                 else
                 {
-                    // Not all data received. Get more.  
+                    // Partial header read — continue reading header bytes.
                     handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
                     new AsyncCallback(HeaderCallback), state);
                 }
             }
             catch
             {
-
+                // Ignore individual receive errors in this simple example.
             }
         }
 
+        /// <summary>
+        /// Callback for reading the message body. Collects body bytes until the
+        /// expected length is reached, then dispatches the message to ServerCore.
+        /// </summary>
         public static void BodyCallback(IAsyncResult ar)
         {
-            // Retrieve the state object and the handler socket  
-            // from the asynchronous state object.  
+            // Retrieve the state and socket for this async operation.
             StateObject state = (StateObject)ar.AsyncState;
             Socket handler = state.workSocket;
             int bytesRead = 0;
-            // Read data from the client socket.
+
             try
             {
                 bytesRead = handler.EndReceive(ar);
             }
             catch
             {
-
+                // Read error — leave bytesRead at 0 and handle as disconnect below.
             }
 
             if (bytesRead > 0)
             {
-                // There  might be more data, so store the data received so far.  
+                // Accumulate bytes for the current body read.
                 state.totalBytesRead += bytesRead;
-                // Check for end-of-file tag. If it is not there, read
-                // more data.  
 
+                // If we've read the full body, extract the payload and reset state.
                 if (state.totalBytesRead == state.header.Length - 4)
                 {
                     byte[] messageBytes = new byte[state.totalBytesRead];
                     Buffer.BlockCopy(state.buffer, 0, messageBytes, 0, state.totalBytesRead);
 
+                    // Clear the buffer and reset counters for the next message.
                     Array.Clear(state.buffer, 0, state.buffer.Length);
                     state.totalBytesRead = 0;
-                    
+
                     try
                     {
+                        // Begin reading the next header for subsequent messages.
                         handler.BeginReceive(state.buffer, 0, 4, 0,
                         new AsyncCallback(HeaderCallback), state);
                     }
                     catch
                     {
-
+                        // If re-issuing the header read fails, swallow the exception.
                     }
 
+                    // Dispatch the fully-received message to the server core for handling.
                     ServerCore.TakeAction(state.workSocket.Handle, state.header.Type, messageBytes);
                 }
                 else
                 {
                     try
                     {
-                        // Not all data received. Get more.  
+                        // Not all body bytes received yet — continue receiving into buffer.
                         handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
                             new AsyncCallback(BodyCallback), state);
                     }
                     catch
                     {
-
+                        // Ignore additional receive errors in this example.
                     }
                 }
             }
             else
             {
+                // Zero bytes read likely indicates a disconnect — notify ServerCore.
                 ServerCore.TakeAction(state.workSocket.Handle, 0, null);
                 try
                 {
+                    // Try to begin reading header again in case socket remains usable.
                     handler.BeginReceive(state.buffer, 0, 4, 0,
                         new AsyncCallback(HeaderCallback), state);
                 }
                 catch
                 {
-
+                    // Swallow exceptions on attempting to rearm the receive.
                 }
             }
         }
 
+        /// <summary>
+        /// Send data to a connected client using an asynchronous send operation.
+        /// If the send fails, the player's socket is reset in the database.
+        /// </summary>
         public static void Send(Socket handler, byte[] data)
         {
             try
             {
-                // Begin sending the data to the remote device.  
+                // Kick off an asynchronous send and handle completion in SendCallback.
                 handler.BeginSend(data, 0, data.Length, 0,
                     new AsyncCallback(SendCallback), handler);
             }
             catch
             {
+                // If sending fails (socket closed), clear player's socket state.
                 ServerCore.ResetPlayerSocket(handler.Handle);
             }
         }
 
+        /// <summary>
+        /// Completion callback for asynchronous sends. Currently only finalizes the
+        /// send; any errors are logged to the console.
+        /// </summary>
         private static void SendCallback(IAsyncResult ar)
         {
             try
             {
-                // Retrieve the socket from the state object.  
+                // Retrieve the socket and complete the send.
                 Socket handler = (Socket)ar.AsyncState;
-
-                // Complete sending the data to the remote device.  
                 int bytesSent = handler.EndSend(ar);
-                //handler.Shutdown(SocketShutdown.Both);
-                //handler.Close();
+                // No further action needed here for persistent connections.
             }
             catch (Exception e)
             {
+                // Log send errors for diagnostics.
                 Console.WriteLine(e.ToString());
             }
         }
