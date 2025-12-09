@@ -57,11 +57,12 @@ namespace Server
         public static void StartListening()
         {
             // Configure local endpoint (IPAddress.Any:11000).
-            IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 11000);
+            IPEndPoint localEndPoint = new IPEndPoint(IPAddress.IPv6Any, 11000);
 
             // Create a TCP/IP listening socket.
-            Socket listener = new Socket(AddressFamily.InterNetwork,
+            Socket listener = new Socket(AddressFamily.InterNetworkV6,
                 SocketType.Stream, ProtocolType.Tcp);
+            listener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
 
             try
             {
@@ -158,9 +159,9 @@ namespace Server
                     new AsyncCallback(HeaderCallback), state);
                 }
             }
-            catch
+            catch (Exception e)
             {
-                // Ignore individual receive errors in this simple example.
+                Console.WriteLine(e.Message);
             }
         }
 

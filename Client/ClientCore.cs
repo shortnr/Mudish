@@ -124,6 +124,8 @@ namespace Client
                 case "east":
                 case "south":
                 case "north":
+                case "up":
+                case "down":
                     command.CommandType = Types.Commands.MOVE;
                     command.Arguments = splitText[0];
                     valid = true;

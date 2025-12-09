@@ -77,7 +77,7 @@ namespace Client
                 ipFixed = Int32.Parse(ipChopped[0]).ToString() + "." +
                           Int32.Parse(ipChopped[1]).ToString() + "." +
                           Int32.Parse(ipChopped[2]).ToString() + "." +
-                          Int32.Parse(ipChopped[3]).ToString() + ".";
+                          Int32.Parse(ipChopped[3]).ToString();
             }
             catch (Exception ex)
             {
@@ -98,7 +98,7 @@ namespace Client
         }
                 private void Default_Click(object sender, RoutedEventArgs e)
         {
-            ServerInputBox.Text = "mudish.com";
+            ServerInputBox.Text = "127.0.0.1";
             PortInputBox.Text = "11000";
         }
     }

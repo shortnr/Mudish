@@ -98,10 +98,10 @@ namespace Server
     public static class Queries
     {
         // Get character name from socket ID
-        public static string NameFromSocket = "call NameFromSocket({0})";
+        public static string NameFromSocket = "select character_name from players where socket_id={0}";
 
         // Get socket ID from character name
-        public static string SocketFromName = "call SocketFromName('{0}')";
+        public static string SocketFromName = "select socket_id from players where character_name='{0}'";
 
         // Check for existing login credentials
         public static string ExistingLoginQuery = "select socket_id from players where character_name = '{0}' and pwd = '{1}'";
@@ -114,17 +114,20 @@ namespace Server
 
         // Create a new character
         public static string CreateCharacter = "insert into players (id, character_name, pwd, room_id, socket_id) values (UUID_TO_BIN(UUID()), " +
-                                                "'{0}', '{1}', UUID_TO_BIN('620bab47-ca98-11eb-bd40-2cf05ddda1bf'), {2})";
+                                                "'{0}', '{1}', UUID_TO_BIN('abd53eab-d403-11f0-86ce-345a6044ad6a'), {2})";
 
         // Log out a player
         public static string LogOut = "call LogOut('{0}'";
 
         // Get current room information
-        public static string Room = "call GetRoom('{0}')";
+        public static string Room = "select * from rooms where id = (select room_id from players where character_name='{0}')";
+
+        public static string Exits = "select direction from room_exits join rooms on rooms.id = room_exits.room_id where " +
+                                     "rooms.id = (select room_id from players where character_name = '{0}')";
 
         // Get the room ID in a specified direction
-        public static string RoomInDirection = "select BIN_TO_UUID(exits.to_room) as new_room from exits " +
-                                               "inner join players on exits.from_room = players.room_id " +
+        public static string RoomInDirection = "select BIN_TO_UUID(room_exits.destination_id) as new_room from room_exits " +
+                                               "inner join players on room_exits.room_id = players.room_id " +
                                                "where direction = '{0}' and players.character_name = '{1}'";
 
         // Update player's current room

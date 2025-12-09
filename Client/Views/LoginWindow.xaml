@@ -17,7 +17,7 @@
 
         <TextBox Name="ServerInputBox" FontSize="24" Grid.Row="0"
                  VerticalAlignment="Center" HorizontalAlignment="Center"
-                 Width="200" Height="36" Margin="48,10,48,11" Text="mudish.com"
+                 Width="200" Height="36" Margin="48,10,48,11" Text="127.0.0.1"
                  TextAlignment="Center" MaxLines="1" Foreground="Gray"
                  GotFocus="ServerInputBox_GotFocus" LostFocus="ServerInputBox_LostFocus"/>
 

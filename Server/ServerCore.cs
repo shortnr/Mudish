@@ -493,12 +493,25 @@ namespace Server
                 // Populate room metadata.
                 room.Title = dt.Rows[0].Field<string>("title");
                 room.Description = dt.Rows[0].Field<string>("description");
-                room.Exits = dt.Rows[0].Field<string>("room_exits");
+                room.Exits = "Exits: ";
                 room.Players = new List<string>();
+
+                // Get a list of exits from the room.
+                dt = (DataTable)db.Query(Queries.Exits, name);
+                var roomExits = new List<string>();
+
+                // Concatenate exit directions into a single string.
+                foreach (DataRow row in dt.Rows)
+                {
+                    roomExits.Add(row.Field<string>("direction"));
+                }
+
+                room.Exits += FormatExits(roomExits);
 
                 // Get a list of other players in the room and map them to active sockets.
                 dt = (DataTable)db.Query(Queries.RoomPlayers, name, name);
 
+                // Add each connected player to the room's player list.
                 foreach (DataRow row in dt.Rows)
                 {
                     string nameCheck = row.Field<string>("character_name");
@@ -518,6 +531,12 @@ namespace Server
                 room.Title = "NULL";
             }
             return room;
+        }
+
+        public static string FormatExits(IEnumerable<string> exits)
+        {
+            var order = new[] { "north", "south", "east", "west", "up", "down" };
+            return string.Join(", ", order.Where(exits.Contains));
         }
 
         /// <summary>
