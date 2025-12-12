@@ -7,7 +7,7 @@
 - Basic communication mechanics
 
 ## 🛠 Technologies Used
-- C#
+- C# WPF (MVVM Design Pattern)
 - .NET Core 10
 - Data storage with MySQL
 
