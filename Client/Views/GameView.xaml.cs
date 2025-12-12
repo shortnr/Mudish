@@ -9,7 +9,7 @@ using Client.Core;
 namespace Client.Views
 {
     /// <summary>
-    /// Interaction logic for GameView.xaml
+    /// Represents the user interface page that displays the main game view within the application.
     /// </summary>
     public partial class GameView : Page
     {

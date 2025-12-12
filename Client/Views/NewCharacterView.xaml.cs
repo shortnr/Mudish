@@ -7,7 +7,7 @@ using System.Windows.Media;
 namespace Client.Views
 {
     /// <summary>
-    /// Interaction logic for NewCharacterWindow.xaml
+    /// Represents the page for creating a new character in the application.
     /// </summary>
     public partial class NewCharacterView : Page
     {
