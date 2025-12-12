@@ -1,0 +1,43 @@
+﻿<Page x:Class="Client.Views.ServerConnectView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Client.Views"
+        mc:Ignorable="d"
+        Height="180" Width="300"  
+        Background="AntiqueWhite">
+
+    <Grid Margin="0 20 0 20">
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBox x:Name="ServerInputBox" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource WatermarkTextBox}" Tag="Server Address"
+                 TextAlignment="Center" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"
+                 Grid.Row="0" Grid.Column="1" Width="200" Height="36" MaxLines="1"
+                 d:Text="Server Address" d:Foreground="Gray"/>
+
+        <TextBox Name="PortInputBox" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource WatermarkTextBox}" Tag="Port"
+                 TextAlignment="Center" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"
+                 Grid.Row="1" Grid.Column="1" Width="200" Height="36" MaxLines="1"
+                 d:Text="Port" d:Foreground="Gray"/>
+
+        <Button x:Name="ConnectButton" Width="90" Height="36" IsDefault="True"
+                Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left"
+                Content="Connect" FontSize="18" Command="{Binding ConnectCommand}"/>
+
+        <Button x:Name="DefaultButton" Width="90" Height="36"
+                Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right"
+                Content="Defaults" FontSize="18" Command="{Binding DefaultCommand}"/>
+    </Grid>
+</Page>

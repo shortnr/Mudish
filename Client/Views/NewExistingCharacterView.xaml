@@ -1,10 +1,10 @@
-﻿<Window x:Name="NewExistingCharacterWindow1" x:Class="Client.Views.NewExistingCharacterWindow"
+﻿<Page x:Name="NewExistingCharacterV" x:Class="Client.Views.NewExistingCharacterView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Client.Views"
-        mc:Ignorable="d" Height="180" Width="300" BorderThickness="2" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" WindowStyle="None">
+        mc:Ignorable="d" Height="180" Width="300" Background="AntiqueWhite">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
@@ -15,9 +15,9 @@
         </Grid.RowDefinitions>
 
         <Button Name="ExistingCharacterButton" Content="Existing Character" FontSize="18" Grid.Row="1"
-                Height="36" Width="200" Margin="0 0 0 0" Click="ExistingCharacterButton_Click"/>
+                Height="36" Width="200" Margin="0 0 0 0" Command="{Binding ExistingCharacterCommand}"/>
 
         <Button Name="NewCharacterButton" Content="New Character" FontSize="18" Grid.Row="3"
-                Height="36" Width="200" Margin="0 0 0 0" Click="NewCharacterButton_Click"/>
+                Height="36" Width="200" Margin="0 0 0 0" Command="{Binding NewCharacterCommand}"/>
     </Grid>
-</Window>
+</Page>
