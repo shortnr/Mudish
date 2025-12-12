@@ -2,52 +2,65 @@
 using Client.ViewModels;
 using Client.Services;
 using System.Windows;
-using System.Diagnostics;
 
 namespace Client
 {
     /// <summary>
-    /// Interaction logic for App.xaml
+    /// Represents the entry point and application-level services for the WPF application.
     /// </summary>
+    /// <remarks>
+    /// The App class initializes core services such as navigation and messaging, and provides a
+    /// factory for creating view model instances. These services are exposed as static properties
+    /// for use throughout the application. App derives from Application and manages application
+    /// startup and main window display.
+    /// </remarks>
     public partial class App : Application
     {
-        public static INavigationService Navigation { get; private set; }
+        // Services
+        public static INavigationService NavigationService { get; private set; }
         public static IMessageService MessageService { get; private set; }
+        
+        // ViewModel factory delegate
         public static Func<Type, ViewModelBase>? ViewModelFactory { get; private set; }
 
+        // Startup override to initialize services and show main window
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Call base startup logic
             base.OnStartup(e);
 
-            Navigation = new NavigationService(CreateViewModel);
+            // Initialize services
+            NavigationService = new NavigationService(CreateViewModel);
             MessageService = new MessageService();
 
-            // VM resolver/factory
+            // Assign ViewModel factory
             ViewModelFactory = CreateViewModel;
 
+            // Create and show main window
             var mainWindow = new MainWindow();
-
             mainWindow.Show();
 
-            Navigation.NavigateTo<ServerConnectViewModel>();
+            // Navigate to initial view model
+            NavigationService.NavigateTo<ServerConnectViewModel>();
         }
 
+        // Factory method to create ViewModel instances based on type
         private ViewModelBase CreateViewModel(Type vmType)
         {
             if (vmType == typeof(ServerConnectViewModel))
-                return new ServerConnectViewModel(Navigation);
+                return new ServerConnectViewModel(NavigationService);
 
             if (vmType == typeof(NewExistingCharacterViewModel))
-                return new NewExistingCharacterViewModel(Navigation);
+                return new NewExistingCharacterViewModel(NavigationService);
 
             if (vmType == typeof(NewCharacterViewModel))
-                return new NewCharacterViewModel(Navigation);
+                return new NewCharacterViewModel(NavigationService);
 
             if (vmType == typeof(ExistingCharacterViewModel))
-                return new ExistingCharacterViewModel(Navigation);
+                return new ExistingCharacterViewModel(NavigationService);
 
             if (vmType == typeof(GameViewModel))
-                return new GameViewModel(Navigation, MessageService);
+                return new GameViewModel(NavigationService, MessageService);
 
             throw new Exception("Unknown ViewModel type " + vmType.Name);
         }

@@ -6,7 +6,7 @@ using System.Windows.Controls;
 namespace Client.Views
 {
     /// <summary>
-    /// Interaction logic for NewExistingCharacterWindow.xaml
+    /// Represents a page that allows users to create a new character or select an existing one.
     /// </summary>
     public partial class NewExistingCharacterView : Page
     {

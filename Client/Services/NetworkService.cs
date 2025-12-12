@@ -6,13 +6,10 @@
 // https://docs.microsoft.com/en-us/dotnet/framework/network-programming/asynchronous-server-socket-example
 
 using Shared;
-using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using System.IO;
-using System.Diagnostics;
 
 namespace Client.Services
 {

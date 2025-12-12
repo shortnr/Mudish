@@ -3,7 +3,7 @@
 namespace Client.Views
 {
     /// <summary>
-    /// Interaction logic for ExistingCharacterWindow.xaml
+    /// Represents a page that displays a login prompt for existing characters.
     /// </summary>
     public partial class ExistingCharacterView : Page
     {

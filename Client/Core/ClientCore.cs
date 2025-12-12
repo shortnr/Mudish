@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Text;
 using Shared;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
-using System.Diagnostics;
 using System.Net.Sockets;
-using System.Threading;
 using Client.Views;
 
 namespace Client.Core
@@ -35,6 +30,7 @@ namespace Client.Core
         // Pre-generated heartbeat message bytes
         private static byte[] heartbeatBytes = Message.GenerateMessage(null, Types.MessageType.HEARBEAT);
 
+        // Connects to the server at the specified IP and port
         public static void Connect(string ip, int port)
         {
             NewAsyncClient(port, ip);
