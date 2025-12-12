@@ -470,6 +470,7 @@ namespace Server
                     break;
 
                 default:
+                    Console.WriteLine("Unknown command.");
                     // Unhandled command types are ignored.
                     break;
             }

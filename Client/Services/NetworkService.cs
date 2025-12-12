@@ -14,7 +14,7 @@ using System.Threading;
 using System.IO;
 using System.Diagnostics;
 
-namespace Client
+namespace Client.Services
 {
     /// <summary>
     /// Holds per-connection state for asynchronous socket operations.
@@ -107,7 +107,7 @@ namespace Client
                 connectDone.Set();
 
                 // Set the client socket in ClientCore
-                ClientCore.SetServer(client); 
+                Core.ClientCore.SetServer(client); 
             }
             catch (Exception e)
             {
@@ -225,7 +225,7 @@ namespace Client
                         new AsyncCallback(HeaderCallback), state);
 
                     // Take action based on the received message
-                    ClientCore.TakeAction(state.header.Type, messageBytes);
+                    Core.ClientCore.TakeAction(state.header.Type, messageBytes);
                 }
                 else
                 {
@@ -237,7 +237,7 @@ namespace Client
             else
             {
                 // No data received; possibly a disconnection. Reset and wait for new messages
-                ClientCore.TakeAction(0, null);
+                Core.ClientCore.TakeAction(0, null);
 
                 try
                 {

@@ -9,8 +9,9 @@ using System.Windows.Threading;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Threading;
+using Client.Views;
 
-namespace Client
+namespace Client.Core
 {
     /// <summary>
     /// Core client logic.
@@ -26,6 +27,7 @@ namespace Client
     /// </remarks>
     public class ClientCore
     {
+        public static event Action<string>? MessageReceived;
         // Socket thread for asynchronous client operations
         static Thread socketThread;
         // Server socket for communication
@@ -33,11 +35,22 @@ namespace Client
         // Pre-generated heartbeat message bytes
         private static byte[] heartbeatBytes = Message.GenerateMessage(null, Types.MessageType.HEARBEAT);
 
+        public static void Connect(string ip, int port)
+        {
+            NewAsyncClient(port, ip);
+            StartSocket();
+        }
+
         // Creates a new asynchronous client socket thread
         public static void NewAsyncClient(int port, string ip)
         {
             // Initialize socket thread
-            socketThread = new Thread(() => AsynchronousClient.StartClient(port, ip));
+            socketThread = new Thread(() => Services.AsynchronousClient.StartClient(port, ip));
+        }
+
+        public static void SetView(Page page)
+        {
+            ((MainWindow)Application.Current.MainWindow).MainFrame.Navigate(page);
         }
 
         // Starts the socket thread
@@ -74,13 +87,13 @@ namespace Client
 
             // Serialize and send login message
             byte[] loginBytes = Message.GenerateMessage(login, Types.MessageType.LOGIN);
-            AsynchronousClient.Send(server, loginBytes);
+            Services.AsynchronousClient.Send(server, loginBytes);
         }
 
         // Sends login message for new character
-        public static void NewCharacter(string name, string password1, string password2)
+        public static void NewCharacter(string name, string password)
         {
-            string encryptedString = EncryptPassword(password1);
+            string encryptedString = EncryptPassword(password);
 
             Login login = new Login
             {
@@ -90,7 +103,7 @@ namespace Client
             };
 
             byte[] loginBytes = Message.GenerateMessage(login, Types.MessageType.LOGIN);
-            AsynchronousClient.Send(server, loginBytes);
+            Services.AsynchronousClient.Send(server, loginBytes);
         }
 
         // Encrypts password using SHA256
@@ -235,7 +248,7 @@ namespace Client
                     Command quit = new Command();
                     quit.CommandType = Types.Commands.QUIT;
                     byte[] quitBytes = Message.GenerateMessage(quit, Types.MessageType.COMMAND);
-                    AsynchronousClient.Send(server, quitBytes);
+                    Services.AsynchronousClient.Send(server, quitBytes);
                     // Close the server socket
                     server.Shutdown(SocketShutdown.Both);
                     // Close the main window on the UI thread
@@ -255,7 +268,7 @@ namespace Client
             if (valid)
             {
                 byte[] messageBytes = Message.GenerateMessage(command, Types.MessageType.COMMAND);
-                AsynchronousClient.Send(server, messageBytes);
+                Services.AsynchronousClient.Send(server, messageBytes);
             }
         }
 
@@ -266,7 +279,7 @@ namespace Client
             {
                 // Heartbeat message
                 case (ushort)Types.MessageType.HEARBEAT:
-                    AsynchronousClient.Send(server, heartbeatBytes);
+                    Services.AsynchronousClient.Send(server, heartbeatBytes);
                     break;
                 // Acknowledgment message
                 case (ushort)Types.MessageType.ACK:
@@ -280,7 +293,6 @@ namespace Client
                             {
                                 ((MainWindow)Application.Current.MainWindow).Activate();
                                 ((MainWindow)Application.Current.MainWindow).IsEnabled = true;
-                                ((MainWindow)Application.Current.MainWindow).Input.Focus();
                             });
                             try
                             {
@@ -289,8 +301,8 @@ namespace Client
                                 {
                                     foreach (Window window in Application.Current.Windows)
                                     {
-                                        if (window.GetType().Name == typeof(Views.ExistingCharacterWindow).Name ||
-                                            window.GetType().Name == typeof(Views.NewCharacterWindow).Name)
+                                        if (window.GetType().Name == typeof(ExistingCharacterView).Name ||
+                                            window.GetType().Name == typeof(NewCharacterView).Name)
                                             window.Close();
                                     }
                                 });
@@ -302,7 +314,7 @@ namespace Client
                                 {
                                     foreach (Window window in Application.Current.Windows)
                                     {
-                                        if (window.GetType().Name == typeof(Views.NewCharacterWindow).Name)
+                                        if (window.GetType().Name == typeof(NewCharacterView).Name)
                                         {
                                             window.Close();
                                         }
@@ -342,15 +354,11 @@ namespace Client
         public static void PrintRoom(Room room)
         {
             // Build room text
-            List<string> roomText = new List<string>();
-            roomText.Add(room.Title);
-            roomText.AddRange(Wrap(room.Description, 60));
-            roomText.Add(room.Exits);
+            MessageReceived?.Invoke('\n' + room.Title);
+            MessageReceived?.Invoke(room.Description);
+            MessageReceived?.Invoke(room.Exits);
             // List players in room
-            foreach (string name in room.Players) roomText.Add(name);
-            roomText.Add("");
-            // Print room text to UI
-            foreach (string line in roomText) AddToTextBlock(line);
+            foreach (string name in room.Players) MessageReceived?.Invoke(name);
         }
 
         // Prints "who" message to the UI
@@ -371,37 +379,13 @@ namespace Client
             // If console message, print to text block
             if (message.MessageType == Types.ServerMessageType.CONSOLE)
             {
-                List<string> text = Wrap(message.MessageText, 60);
-                foreach (string line in text) AddToTextBlock(line);
-                AddToTextBlock("");
+                MessageReceived?.Invoke(message.MessageText);
             }
             // Else, show message box
             else
                 MessageBox.Show(message.MessageText);
         }
 
-        // Wraps text to specified width
-        public static List<string> Wrap(string text, int width)
-        {
-            // List to hold wrapped text lines
-            List<string> returnText = new List<string>();
-
-            // Wrap text while it exceeds width
-            while (text.Length > width)
-            {
-                // Get substring and find last space
-                string substr = text.Substring(0, width);
-                int lastSpace = substr.LastIndexOf(" ");
-
-                // Add line to return text and update remaining text
-                returnText.Add(text.Substring(0, lastSpace + 1));
-                text = text.Substring(lastSpace + 1);
-            }
-            // Add remaining text
-            returnText.Add(text);
-
-            return returnText;
-        }
 
         // Appends text to the UI text block on the UI thread
         private static void AddToTextBlock(string newText)
@@ -410,7 +394,7 @@ namespace Client
             Application.Current.Dispatcher.Invoke(() =>
             {
                 // Append text to main window text block
-                ((MainWindow)Application.Current.MainWindow).AppendTextBlock(newText);
+                //((MainWindow)Application.Current.MainWindow).AppendTextBlock(newText);
             });
         }
     }
